@@ -1,13 +1,15 @@
 # Faction Aggro Monitor
 
-**Version:** 0.3.2  
+**Version:** 0.3.3  
 **Client:** World of Warcraft 3.3.5a (Interface 30300)  
 **Author:** Charls
 
 Visual proximity radar prototype for Trial of the Crusader (Faction Champions).
 
-## Version 0.3.2
+## Version 0.3.3
 
+- Rotates map-relative radar points with the player's facing direction so the player's forward direction remains at the top.
+- Adds facing API availability/value to `/fam debug`.
 - Improves hostile GUID/name observation from combat-log events, including event counts and per-enemy event counts, with a 45-second timeout.
 - Checks additional unit tokens including `targettarget` and `arena1` through `arena5`.
 - Extends `/fam debug` to list hostile GUIDs seen during combat and available unit-token coordinates.
