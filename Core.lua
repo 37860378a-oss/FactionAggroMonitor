@@ -1,5 +1,7 @@
 local FAM = FactionAggroMonitor
 local elapsed = 0
+local seenEnemies = {}
+local HOSTILE_FLAG = COMBATLOG_OBJECT_REACTION_HOSTILE or 0x00000040
 
 local function GetMapPosition(unit)
     if not UnitExists(unit) then return nil end
@@ -56,6 +58,9 @@ function FAM:CollectUnits()
     if self.db.showBossUnits then
         for i = 1, 5 do AddUnit(units, "boss" .. i, "Boss " .. i, {1, 0.2, 0.2}) end
     end
+    -- Additional unit tokens that may be exposed by the client/server.
+    AddUnit(units, "targettarget", "TargetTarget", {1, 0.45, 0.2})
+    for i = 1, 5 do AddUnit(units, "arena" .. i, "Arena " .. i, {1, 0.2, 0.2}) end
     return units, px, py
 end
 
@@ -86,7 +91,9 @@ function FAM:Refresh()
             end
         end
     end
-    self:SetStatus(rangeText .. " | Unidades visibles: " .. shown)
+    local enemyCount = 0
+    for _ in pairs(seenEnemies) do enemyCount = enemyCount + 1 end
+    self:SetStatus(rangeText .. " | Puntos: " .. shown .. " | Enemigos vistos: " .. enemyCount)
 end
 
 
@@ -113,7 +120,28 @@ function FAM:DebugUnits()
     for i = 1, 5 do Report("boss" .. i) end
     self:Print("UnitPosition: " .. tostring(type(UnitPosition) == "function"))
     self:Print("GetPlayerMapPosition: " .. tostring(type(GetPlayerMapPosition) == "function"))
-    self:Print("Nota: nameplateN no existe en la API 3.3.5; no se usa.")
+    for i = 1, 5 do Report("arena" .. i) end
+    Report("targettarget")
+    local count = 0
+    for guid, info in pairs(seenEnemies) do
+        count = count + 1
+        self:Print("Enemigo visto " .. count .. ": " .. tostring(info.name) .. " | GUID: " .. tostring(guid))
+    end
+    self:Print("GUID hostiles registrados en combate: " .. count)
+    self:Print("Nota: el registro de combate identifica enemigos, pero no proporciona su posicion/distancia.")
+end
+
+function FAM:RecordCombatUnit(guid, name, flags)
+    if not guid or not flags or not bit or not bit.band then return end
+    if bit.band(flags, HOSTILE_FLAG) == 0 then return end
+    seenEnemies[guid] = { name = name or "Enemigo", time = GetTime() }
+end
+
+function FAM:PruneCombatUnits()
+    local now = GetTime()
+    for guid, info in pairs(seenEnemies) do
+        if not info.time or (now - info.time) > 45 then seenEnemies[guid] = nil end
+    end
 end
 
 SLASH_FACTIONAGGROMONITOR1 = "/fam"
@@ -121,6 +149,8 @@ SlashCmdList["FACTIONAGGROMONITOR"] = function(message)
     local command, value = string.match(message or "", "^(%S*)%s*(.-)$")
     command = string.lower(command or "")
     if command == "debug" then
+        FAM:DebugUnits()
+    elseif command == "enemies" then
         FAM:DebugUnits()
     elseif command == "reset" then
         FAM:ResetPosition(); FAM:Print("Posicion del radar restaurada.")
@@ -145,8 +175,14 @@ end
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("ADDON_LOADED")
 loader:RegisterEvent("PLAYER_ENTERING_WORLD")
-loader:SetScript("OnEvent", function(self, event, addon)
-    if event == "ADDON_LOADED" then
+loader:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+loader:SetScript("OnEvent", function(self, event, ...)
+    if event == "COMBAT_LOG_EVENT_UNFILTERED" then
+        local timestamp, subevent, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags = ...
+        FAM:RecordCombatUnit(sourceGUID, sourceName, sourceFlags)
+        FAM:RecordCombatUnit(destGUID, destName, destFlags)
+        return
+    elseif event == "ADDON_LOADED" then
         if addon ~= "FactionAggroMonitor" then return end
         FAM:InitializeDB(); FAM:CreateRadar()
         FAM:Print("v" .. FAM.VERSION .. " cargado. /fam para mostrar u ocultar.")
@@ -158,5 +194,5 @@ local ticker = CreateFrame("Frame")
 ticker:SetScript("OnUpdate", function(self, delta)
     if not FAM.db or not FAM.db.enabled or not FAM.frame or not FAM.frame:IsShown() then return end
     elapsed = elapsed + delta
-    if elapsed >= FAM.db.updateRate then elapsed = 0; FAM:Refresh() end
+    if elapsed >= FAM.db.updateRate then elapsed = 0; FAM:PruneCombatUnits(); FAM:Refresh() end
 end)
