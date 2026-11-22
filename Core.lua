@@ -17,22 +17,16 @@ local function AddUnit(units, unit, label, color)
     end
 end
 
--- Spell range is a proxy only; it is not the NPC aggro radius.
 function FAM:GetTargetRangeText()
-    if not UnitExists("target") then
-        return "|cffaaaaaaSin objetivo|r"
-    end
-
+    if not UnitExists("target") then return "|cffaaaaaaSin objetivo|r" end
     local spellName = self.db.rangeSpell or "Exorcismo"
     local inRange = IsSpellInRange(spellName, "target")
     local targetName = UnitName("target") or "Objetivo"
-
     if inRange == 1 or inRange == true then
         return "|cff33ff66" .. targetName .. " - " .. spellName .. ": EN RANGO|r"
     elseif inRange == 0 or inRange == false then
         return "|cffff5555" .. targetName .. " - " .. spellName .. ": FUERA DE RANGO|r"
     end
-
     return "|cffffcc55" .. targetName .. " - " .. spellName .. ": SIN DATO|r"
 end
 
@@ -40,8 +34,8 @@ function FAM:CollectUnits()
     local units = {}
     SetMapToCurrentZone()
     local px, py = GetMapPosition("player")
-    if not px or not py then return units, nil, nil end
 
+    -- Collect available unit coordinates even if the player's map position is missing.
     if self.db.showPlayers then
         if GetNumRaidMembers() > 0 then
             for i = 1, GetNumRaidMembers() do
@@ -70,15 +64,18 @@ function FAM:Refresh()
     self:ClearDots()
     local rangeText = self:GetTargetRangeText()
     local units, px, py = self:CollectUnits()
-    if not px then
-        self:SetStatus(rangeText .. " | Coordenadas del mapa no disponibles")
+    local areaW, areaH = self.area:GetWidth(), self.area:GetHeight()
+    local shown = 0
+
+    -- Always keep the player's center marker visible; map coordinates are optional.
+    self:PlaceDot("player-center", 0.5, 0.5, {0.2, 1, 0.4}, 9)
+
+    if not px or not py then
+        self:SetStatus(rangeText .. " | Sin coordenadas del jugador")
         return
     end
 
-    local areaW, areaH = self.area:GetWidth(), self.area:GetHeight()
     local scale = math.min(areaW, areaH) / 0.10
-    local shown = 0
-    self:PlaceDot("player-center", 0.5, 0.5, {0.2, 1, 0.4}, 9)
     for i, unit in ipairs(units) do
         if unit.token ~= "player" then
             local dx, dy = unit.x - px, unit.y - py
