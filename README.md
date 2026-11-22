@@ -1,10 +1,18 @@
 # Faction Aggro Monitor
 
-**Version:** 0.1.0  
+**Version:** 0.2.0  
 **Client:** World of Warcraft 3.3.5a (Interface 30300)  
 **Author:** Charls
 
 Visual proximity radar prototype for Trial of the Crusader (Faction Champions).
+
+## Version 0.2.0
+
+- Adds a live target-range indicator using the configured spell, defaulting to the Spanish client spell name **Exorcismo**.
+- Displays EN RANGO, FUERA DE RANGO, SIN DATO, or Sin objetivo in the radar status line.
+- Adds `/fam spell Exorcismo` to change the spell used as a range reference.
+
+The indicator uses the result of `IsSpellInRange`. It reports the spell's range only; it does **not** measure the Faction Champion's aggro radius.
 
 ## Current prototype
 
@@ -26,16 +34,17 @@ Copy the FactionAggroMonitor folder into Interface/AddOns/ and reload the UI.
 
 ## Commands
 
-- /fam — show/hide radar.
-- /fam reset — reset radar position.
-- /fam range 0.025 — set visual radius in normalized map units (not yards).
-- /fam lock — toggle window movement lock.
+- `/fam` — show/hide radar.
+- `/fam reset` — reset radar position.
+- `/fam range 0.025` — set visual guide radius in normalized map units (not yards).
+- `/fam spell Exorcismo` — set the spell used for the target-range indicator.
+- `/fam lock` — toggle window movement lock.
 
-## Calibration plan
+## Next calibration steps
 
-1. Test in ToC 10-player and 25-player.
-2. Verify which unit tokens expose champion coordinates.
-3. Record the map-coordinate change at the moment champions begin moving.
-4. Repeat from several positions and derive a reliable per-instance visual scale.
+1. Test the indicator with a Faction Champion selected at a distance where Exorcismo is out of range.
+2. Approach until Exorcismo becomes available and confirm the status changes.
+3. Separately observe when the champions begin moving; do not treat spell range as their aggro radius.
+4. Repeat in ToC 10-player and 25-player to calibrate actual encounter behavior.
 
 No claim of exact aggro range is made until server behavior has been measured.
