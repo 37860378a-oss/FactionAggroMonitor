@@ -1,10 +1,10 @@
 FactionAggroMonitor = FactionAggroMonitor or {}
 local FAM = FactionAggroMonitor
-FAM.VERSION = "0.1.0"
+FAM.VERSION = "0.2.0"
 
 local defaults = {
     enabled = true, radius = 0.025, safetyRadius = 0.00625,
-    updateRate = 0.20, radarSize = 240,
+    updateRate = 0.20, radarSize = 240, rangeSpell = "Exorcismo",
     showPlayers = true, showTargets = true, showMouseover = true,
     showFocus = true, showBossUnits = true, locked = false,
     point = "CENTER", relativePoint = "CENTER", x = 0, y = 0,
