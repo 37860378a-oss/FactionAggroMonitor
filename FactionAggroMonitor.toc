@@ -1,8 +1,8 @@
 ## Interface: 30300
 ## Title: Faction Aggro Monitor
-## Notes: Visual proximity radar and spell-range indicator for Trial of the Crusader.
+## Notes: Faction Champions proximity radar diagnostics for WoW 3.3.5a.
 ## Author: Charls
-## Version: 0.2.1
+## Version: 0.3.0
 ## SavedVariables: FactionAggroMonitorDB
 
 Config.lua
