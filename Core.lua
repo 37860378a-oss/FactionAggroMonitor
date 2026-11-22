@@ -89,11 +89,40 @@ function FAM:Refresh()
     self:SetStatus(rangeText .. " | Unidades visibles: " .. shown)
 end
 
+
+function FAM:DebugUnits()
+    SetMapToCurrentZone()
+    local function Report(unit)
+        if UnitExists(unit) then
+            local name = UnitName(unit) or "?"
+            local guid = UnitGUID and UnitGUID(unit) or nil
+            local x, y = GetPlayerMapPosition(unit)
+            local coords = "sin coordenadas"
+            if x and y then coords = string.format("mapa %.4f, %.4f", x, y) end
+            self:Print(unit .. ": " .. name .. " | " .. coords .. " | GUID: " .. tostring(guid or "no disponible"))
+        else
+            self:Print(unit .. ": no disponible")
+        end
+    end
+
+    self:Print("=== Diagnostico FAM v" .. self.VERSION .. " ===")
+    Report("player")
+    Report("target")
+    Report("mouseover")
+    Report("focus")
+    for i = 1, 5 do Report("boss" .. i) end
+    self:Print("UnitPosition: " .. tostring(type(UnitPosition) == "function"))
+    self:Print("GetPlayerMapPosition: " .. tostring(type(GetPlayerMapPosition) == "function"))
+    self:Print("Nota: nameplateN no existe en la API 3.3.5; no se usa.")
+end
+
 SLASH_FACTIONAGGROMONITOR1 = "/fam"
 SlashCmdList["FACTIONAGGROMONITOR"] = function(message)
     local command, value = string.match(message or "", "^(%S*)%s*(.-)$")
     command = string.lower(command or "")
-    if command == "reset" then
+    if command == "debug" then
+        FAM:DebugUnits()
+    elseif command == "reset" then
         FAM:ResetPosition(); FAM:Print("Posicion del radar restaurada.")
     elseif command == "range" then
         FAM:SetRadius(value)
