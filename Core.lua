@@ -1,193 +1,145 @@
 local FAM = FactionAggroMonitor
 local elapsed = 0
-local seenEnemies = {}
-local combatEventCount = 0
-local hostileEventCount = 0
-local HOSTILE_FLAG = COMBATLOG_OBJECT_REACTION_HOSTILE or 0x00000040
+local tracked = {}
+local combatEvents = 0
+local hostileEvents = 0
+local HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE or 0x40
+local FRIENDLY = COMBATLOG_OBJECT_REACTION_FRIENDLY or 0x10
 
-local function GetMapPosition(unit)
-    if not UnitExists(unit) then return nil end
-    local x, y = GetPlayerMapPosition(unit)
-    if not x or not y or (x == 0 and y == 0) then return nil end
-    return x, y
-end
-
-local function AddUnit(units, unit, label, color)
-    if UnitExists(unit) then
-        local x, y = GetMapPosition(unit)
-        if x and y then
-            table.insert(units, { token = unit, label = label or UnitName(unit), x = x, y = y, color = color })
+local function addToken(list, seen, token)
+    if UnitExists(token) then
+        local guid = UnitGUID and UnitGUID(token)
+        local key = guid or token
+        if not seen[key] then
+            seen[key] = true
+            local name = UnitName(token) or token
+            local hostile = UnitCanAttack and UnitCanAttack("player", token)
+            local friendly = UnitIsFriend and UnitIsFriend("player", token)
+            local combat = UnitAffectingCombat and UnitAffectingCombat(token)
+            list[#list + 1] = {
+                token = token, guid = guid, name = name,
+                faction = hostile and "enemy" or (friendly and "ally" or "unknown"),
+                combat = combat == nil and "unknown" or (combat and "in" or "out"),
+                source = "unit-token"
+            }
         end
     end
 end
 
-function FAM:GetTargetRangeText()
-    if not UnitExists("target") then return "|cffaaaaaaSin objetivo|r" end
-    local spellName = self.db.rangeSpell or "Exorcismo"
-    local inRange = IsSpellInRange(spellName, "target")
-    local targetName = UnitName("target") or "Objetivo"
-    if inRange == 1 or inRange == true then
-        return "|cff33ff66" .. targetName .. " - " .. spellName .. ": EN RANGO|r"
-    elseif inRange == 0 or inRange == false then
-        return "|cffff5555" .. targetName .. " - " .. spellName .. ": FUERA DE RANGO|r"
+function FAM:CollectKnownUnits()
+    local list, seen = {}, {}
+    addToken(list, seen, "target")
+    addToken(list, seen, "mouseover")
+    addToken(list, seen, "focus")
+    addToken(list, seen, "targettarget")
+    for i = 1, 5 do
+        addToken(list, seen, "boss" .. i)
+        addToken(list, seen, "arena" .. i)
     end
-    return "|cffffcc55" .. targetName .. " - " .. spellName .. ": SIN DATO|r"
+    for i = 1, GetNumPartyMembers() do addToken(list, seen, "party" .. i) end
+    for i = 1, GetNumRaidMembers() do addToken(list, seen, "raid" .. i) end
+    return list
 end
 
-function FAM:CollectUnits()
-    local units = {}
-    SetMapToCurrentZone()
-    local px, py = GetMapPosition("player")
+function FAM:RecordCombatUnit(guid, name, flags, subevent)
+    if not guid then return end
+    local faction = "unknown"
+    if flags and bit and bit.band then
+        if bit.band(flags, HOSTILE) ~= 0 then faction = "enemy"
+        elseif bit.band(flags, FRIENDLY) ~= 0 then faction = "ally" end
+    end
+    local item = tracked[guid] or { guid = guid, firstSeen = GetTime(), hits = 0 }
+    item.name = name or item.name or "Unidad desconocida"
+    item.faction = faction ~= "unknown" and faction or item.faction or "unknown"
+    item.lastSeen = GetTime()
+    item.lastEvent = subevent or item.lastEvent
+    item.hits = item.hits + 1
+    tracked[guid] = item
+    if item.faction == "enemy" then hostileEvents = hostileEvents + 1 end
+end
 
-    -- Collect available unit coordinates even if the player's map position is missing.
-    if self.db.showPlayers then
-        if GetNumRaidMembers() > 0 then
-            for i = 1, GetNumRaidMembers() do
-                AddUnit(units, "raid" .. i, UnitName("raid" .. i), {0.25, 0.65, 1})
-            end
-        elseif GetNumPartyMembers() > 0 then
-            AddUnit(units, "player", UnitName("player"), {0.25, 0.65, 1})
-            for i = 1, GetNumPartyMembers() do
-                AddUnit(units, "party" .. i, UnitName("party" .. i), {0.25, 0.65, 1})
-            end
-        else
-            AddUnit(units, "player", UnitName("player"), {0.25, 0.65, 1})
-        end
+function FAM:PruneTracked()
+    local now = GetTime()
+    for guid, item in pairs(tracked) do
+        if not item.lastSeen or now - item.lastSeen > (self.db.memorySeconds or 60) then tracked[guid] = nil end
     end
-    if self.db.showTargets then AddUnit(units, "target", "Target", {1, 0.2, 0.2}) end
-    if self.db.showMouseover then AddUnit(units, "mouseover", "Mouseover", {1, 0.75, 0.15}) end
-    if self.db.showFocus then AddUnit(units, "focus", "Focus", {0.8, 0.3, 1}) end
-    if self.db.showBossUnits then
-        for i = 1, 5 do AddUnit(units, "boss" .. i, "Boss " .. i, {1, 0.2, 0.2}) end
-    end
-    -- Additional unit tokens that may be exposed by the client/server.
-    AddUnit(units, "targettarget", "TargetTarget", {1, 0.45, 0.2})
-    for i = 1, 5 do AddUnit(units, "arena" .. i, "Arena " .. i, {1, 0.2, 0.2}) end
-    return units, px, py
+end
+
+function FAM:MatchesFilters(unit)
+    local faction = self.db.faction or "enemies"
+    if faction == "enemies" and unit.faction ~= "enemy" then return false end
+    if faction == "allies" and unit.faction ~= "ally" then return false end
+    if faction == "both" and unit.faction == "unknown" then return false end
+    local combat = self.db.combat or "any"
+    if combat == "in" and unit.combat ~= "in" then return false end
+    if combat == "out" and unit.combat ~= "out" then return false end
+    local name = string.lower(self.db.nameFilter or "")
+    if name ~= "" and not string.find(string.lower(unit.name or ""), name, 1, true) then return false end
+    return true
 end
 
 function FAM:Refresh()
     if not self.frame or not self.db.enabled then return end
     self:ClearDots()
-    local rangeText = self:GetTargetRangeText()
-    local units, px, py = self:CollectUnits()
-    local areaW, areaH = self.area:GetWidth(), self.area:GetHeight()
-    local shown = 0
-
-    -- Always keep the player's center marker visible; map coordinates are optional.
+    local units = self:CollectKnownUnits()
+    local matched, enemies, allies = 0, 0, 0
+    for _, unit in ipairs(units) do
+        if unit.faction == "enemy" then enemies = enemies + 1
+        elseif unit.faction == "ally" then allies = allies + 1 end
+        if self:MatchesFilters(unit) then matched = matched + 1 end
+    end
+    local observed = 0
+    for _ in pairs(tracked) do observed = observed + 1 end
     self:PlaceDot("player-center", 0.5, 0.5, {0.2, 1, 0.4}, 9)
-
-    if not px or not py then
-        self:SetStatus(rangeText .. " | Sin coordenadas del jugador")
-        return
-    end
-
-    local scale = math.min(areaW, areaH) / 0.10
-    -- Rotate map-relative coordinates so the player's facing always points to the top.
-    -- WoW facing is in radians; map X grows east and map Y grows north.
-    local facing = GetPlayerFacing and GetPlayerFacing() or nil
-    local cosFacing, sinFacing = 1, 0
-    if facing then
-        cosFacing, sinFacing = math.cos(facing), math.sin(facing)
-    end
-    for i, unit in ipairs(units) do
-        if unit.token ~= "player" then
-            local dx, dy = unit.x - px, unit.y - py
-            local rx = dx * cosFacing - dy * sinFacing
-            local ry = dx * sinFacing + dy * cosFacing
-            local nx, ny = 0.5 + (rx * scale / areaW), 0.5 + (ry * scale / areaH)
-            if nx >= 0 and nx <= 1 and ny >= 0 and ny <= 1 then
-                self:PlaceDot("unit" .. i, nx, ny, unit.color, 7)
-                shown = shown + 1
-            end
-        end
-    end
-    local enemyCount = 0
-    for _ in pairs(seenEnemies) do enemyCount = enemyCount + 1 end
-    local headingText = facing and (" | Frente: " .. math.floor((facing * 180 / math.pi) % 360) .. " grados") or " | Sin orientacion"
-    self:SetStatus(rangeText .. " | Puntos: " .. shown .. " | Enemigos vistos: " .. enemyCount .. headingText)
+    self:SetStatus("Tokens: " .. #units .. " | Enemigos: " .. enemies .. " | Aliados: " .. allies .. " | Filtrados: " .. matched .. " | GUID combate: " .. observed)
+    if self.subtitle then self.subtitle:SetText("Detector generico - posiciones NPC no disponibles por API") end
 end
-
 
 function FAM:DebugUnits()
-    SetMapToCurrentZone()
-    local function Report(unit)
-        if UnitExists(unit) then
-            local name = UnitName(unit) or "?"
-            local guid = UnitGUID and UnitGUID(unit) or nil
-            local x, y = GetPlayerMapPosition(unit)
-            local coords = "sin coordenadas"
-            if x and y then coords = string.format("mapa %.4f, %.4f", x, y) end
-            self:Print(unit .. ": " .. name .. " | " .. coords .. " | GUID: " .. tostring(guid or "no disponible"))
-        else
-            self:Print(unit .. ": no disponible")
-        end
+    local units = self:CollectKnownUnits()
+    self:Print("=== FAM " .. self.VERSION .. " | Unidades accesibles ===")
+    for _, unit in ipairs(units) do
+        self:Print(unit.token .. ": " .. unit.name .. " | " .. unit.faction .. " | combate: " .. unit.combat .. " | GUID: " .. tostring(unit.guid))
     end
-
-    self:Print("=== Diagnostico FAM v" .. self.VERSION .. " ===")
-    Report("player")
-    Report("target")
-    Report("mouseover")
-    Report("focus")
-    for i = 1, 5 do Report("boss" .. i) end
-    self:Print("UnitPosition: " .. tostring(type(UnitPosition) == "function"))
-    self:Print("GetPlayerMapPosition: " .. tostring(type(GetPlayerMapPosition) == "function"))
-    self:Print("GetPlayerFacing: " .. tostring(type(GetPlayerFacing) == "function") .. " | facing: " .. tostring(GetPlayerFacing and GetPlayerFacing() or "no disponible"))
-    for i = 1, 5 do Report("arena" .. i) end
-    Report("targettarget")
     local count = 0
-    for guid, info in pairs(seenEnemies) do
+    for guid, item in pairs(tracked) do
         count = count + 1
-        self:Print("Enemigo visto " .. count .. ": " .. tostring(info.name) .. " | eventos: " .. tostring(info.hits or 0) .. " | GUID: " .. tostring(guid))
+        self:Print("Registro combate " .. count .. ": " .. item.name .. " | " .. item.faction .. " | eventos: " .. item.hits .. " | GUID: " .. guid)
     end
-    self:Print("GUID hostiles registrados en combate: " .. count)
-    self:Print("Eventos de combate recibidos: " .. combatEventCount .. " | nuevos GUID hostiles: " .. hostileEventCount)
-    self:Print("Nota: los nombres/GUID se obtienen cuando participan en combate; esto no proporciona posicion ni distancia.")
+    self:Print("Eventos de combate: " .. combatEvents .. " | eventos hostiles: " .. hostileEvents)
+    self:Print("Importante: el registro de combate identifica unidades, pero no aporta posicion ni distancia.")
 end
 
-function FAM:RecordCombatUnit(guid, name, flags)
-    if not guid then return end
-    if not flags or not bit or not bit.band then return end
-    if bit.band(flags, HOSTILE_FLAG) == 0 then return end
-    local entry = seenEnemies[guid]
-    if not entry then entry = { name = name or "Enemigo", hits = 0 }; seenEnemies[guid] = entry end
-    entry.name = name or entry.name or "Enemigo"
-    entry.hits = (entry.hits or 0) + 1
-    entry.time = GetTime()
-end
-
-function FAM:PruneCombatUnits()
-    local now = GetTime()
-    for guid, info in pairs(seenEnemies) do
-        if not info.time or (now - info.time) > 45 then seenEnemies[guid] = nil end
+function FAM:PrintList()
+    local units = self:CollectKnownUnits()
+    self:Print("Unidades que el cliente expone:")
+    for _, unit in ipairs(units) do
+        if self:MatchesFilters(unit) then self:Print(unit.name .. " [" .. unit.faction .. ", combate " .. unit.combat .. "] - " .. unit.token) end
     end
+    self:Print("Los GUID del registro de combate no son tokens seleccionables ni tienen coordenadas.")
 end
 
 SLASH_FACTIONAGGROMONITOR1 = "/fam"
 SlashCmdList["FACTIONAGGROMONITOR"] = function(message)
     local command, value = string.match(message or "", "^(%S*)%s*(.-)$")
     command = string.lower(command or "")
-    if command == "debug" then
-        FAM:DebugUnits()
-    elseif command == "enemies" then
-        FAM:DebugUnits()
-    elseif command == "reset" then
-        FAM:ResetPosition(); FAM:Print("Posicion del radar restaurada.")
-    elseif command == "range" then
-        FAM:SetRadius(value)
-    elseif command == "spell" then
-        if value and value ~= "" then
-            FAM.db.rangeSpell = value
-            FAM:Print("Habilidad de referencia: " .. value)
-            FAM:Refresh()
-        else
-            FAM:Print("Uso: /fam spell Exorcismo")
-        end
+    if command == "debug" then FAM:DebugUnits()
+    elseif command == "list" then FAM:PrintList()
+    elseif command == "faction" then
+        if value == "enemies" or value == "allies" or value == "both" then FAM.db.faction = value; FAM:Print("Filtro de faccion: " .. value)
+        else FAM:Print("Uso: /fam faction enemies|allies|both") end
+    elseif command == "combat" then
+        if value == "any" or value == "in" or value == "out" then FAM.db.combat = value; FAM:Print("Filtro de combate: " .. value)
+        else FAM:Print("Uso: /fam combat any|in|out") end
+    elseif command == "name" then
+        FAM.db.nameFilter = value or ""; FAM:Print("Filtro de nombre: " .. (FAM.db.nameFilter ~= "" and FAM.db.nameFilter or "ninguno"))
+    elseif command == "range" then FAM:SetRadius(value)
     elseif command == "lock" then
         FAM.db.locked = not FAM.db.locked
         FAM:Print("Radar " .. (FAM.db.locked and "bloqueado." or "desbloqueado."))
+    elseif command == "reset" then FAM:ResetPosition(); FAM:Print("Posicion restaurada.")
     else
-        if FAM.frame:IsShown() then FAM.frame:Hide() else FAM.frame:Show() end
+        if FAM.frame:IsShown() then FAM.frame:Hide() else FAM.frame:Show(); FAM:Refresh() end
     end
 end
 
@@ -195,30 +147,37 @@ local loader = CreateFrame("Frame")
 loader:RegisterEvent("ADDON_LOADED")
 loader:RegisterEvent("PLAYER_ENTERING_WORLD")
 loader:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+loader:RegisterEvent("PLAYER_TARGET_CHANGED")
+loader:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
+loader:RegisterEvent("PLAYER_FOCUS_CHANGED")
+loader:RegisterEvent("UNIT_FLAGS")
 loader:SetScript("OnEvent", function(self, event, ...)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
         local timestamp, subevent, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags = ...
-        combatEventCount = combatEventCount + 1
-        local before = 0
-        for _ in pairs(seenEnemies) do before = before + 1 end
-        FAM:RecordCombatUnit(sourceGUID, sourceName, sourceFlags)
-        FAM:RecordCombatUnit(destGUID, destName, destFlags)
-        local after = 0
-        for _ in pairs(seenEnemies) do after = after + 1 end
-        if after > before then hostileEventCount = hostileEventCount + 1 end
+        combatEvents = combatEvents + 1
+        FAM:RecordCombatUnit(sourceGUID, sourceName, sourceFlags, subevent)
+        FAM:RecordCombatUnit(destGUID, destName, destFlags, subevent)
         return
     elseif event == "ADDON_LOADED" then
         local addon = ...
         if addon ~= "FactionAggroMonitor" then return end
-        FAM:InitializeDB(); FAM:CreateRadar()
-        FAM:Print("v" .. FAM.VERSION .. " cargado. /fam para mostrar u ocultar.")
+        FAM:InitializeDB()
+        FAM:CreateRadar()
+        FAM:Print("v" .. FAM.VERSION .. " cargado. /fam debug para diagnostico.")
     elseif event == "PLAYER_ENTERING_WORLD" then
+        if FAM.Refresh then FAM:Refresh() end
+    else
         if FAM.Refresh then FAM:Refresh() end
     end
 end)
+
 local ticker = CreateFrame("Frame")
 ticker:SetScript("OnUpdate", function(self, delta)
     if not FAM.db or not FAM.db.enabled or not FAM.frame or not FAM.frame:IsShown() then return end
     elapsed = elapsed + delta
-    if elapsed >= FAM.db.updateRate then elapsed = 0; FAM:PruneCombatUnits(); FAM:Refresh() end
+    if elapsed >= (FAM.db.updateRate or 0.5) then
+        elapsed = 0
+        FAM:PruneTracked()
+        FAM:Refresh()
+    end
 end)
