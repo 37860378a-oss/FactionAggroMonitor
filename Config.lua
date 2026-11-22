@@ -30,6 +30,7 @@ function FAM:SetRadius(value)
     end
     self.db.radius = value
     self:Print("Radio visual actualizado: " .. tostring(value))
+    if self.UpdateRadarGeometry then self:UpdateRadarGeometry() end
     if self.Refresh then self:Refresh() end
 end
 
