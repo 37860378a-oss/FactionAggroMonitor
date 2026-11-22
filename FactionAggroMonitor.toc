@@ -2,7 +2,7 @@
 ## Title: Faction Aggro Monitor
 ## Notes: Visual proximity radar and spell-range indicator for Trial of the Crusader.
 ## Author: Charls
-## Version: 0.2.0
+## Version: 0.2.1
 ## SavedVariables: FactionAggroMonitorDB
 
 Config.lua
