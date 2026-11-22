@@ -1,20 +1,25 @@
 # Faction Aggro Monitor
 
-**Version:** 0.2.0  
+**Version:** 0.3.0  
 **Client:** World of Warcraft 3.3.5a (Interface 30300)  
 **Author:** Charls
 
 Visual proximity radar prototype for Trial of the Crusader (Faction Champions).
 
-## Version 0.2.0
+## Version 0.3.0
 
-- Adds a live target-range indicator using the configured spell, defaulting to the Spanish client spell name **Exorcismo**.
+- Adds `/fam debug` to report available player/target/boss unit tokens, map coordinates, GUIDs, and relevant API availability.
+- Keeps the optional spell-range indicator using **Exorcismo** as a reference only.
 - Displays EN RANGO, FUERA DE RANGO, SIN DATO, or Sin objetivo in the radar status line.
 - Adds `/fam spell Exorcismo` to change the spell used as a range reference.
 
-The indicator uses the result of `IsSpellInRange`. It reports the spell's range only; it does **not** measure the Faction Champion's aggro radius.
+The diagnostic command helps determine whether the encounter exposes champion units and usable coordinates. It does not itself reveal hidden NPC positions. The spell indicator uses `IsSpellInRange` and does **not** measure aggro radius.
 
 ## Current prototype
+
+### Diagnostics
+
+During the Faction Champions encounter, run `/fam debug` and inspect the chat output. It checks `target`, `mouseover`, `focus`, and `boss1` through `boss5` without requiring a target selection. Send the complete output for analysis.
 
 - Movable radar window.
 - Player-centered map-coordinate display.
@@ -35,6 +40,7 @@ Copy the FactionAggroMonitor folder into Interface/AddOns/ and reload the UI.
 ## Commands
 
 - `/fam` — show/hide radar.
+- `/fam debug` — print available unit tokens, GUIDs, and coordinates for diagnosis.
 - `/fam reset` — reset radar position.
 - `/fam range 0.025` — set visual guide radius in normalized map units (not yards).
 - `/fam spell Exorcismo` — set the spell used for the target-range indicator.
