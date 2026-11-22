@@ -7,6 +7,7 @@ local function GetMapPosition(unit)
     if not x or not y or (x == 0 and y == 0) then return nil end
     return x, y
 end
+
 local function AddUnit(units, unit, label, color)
     if UnitExists(unit) then
         local x, y = GetMapPosition(unit)
@@ -14,6 +15,25 @@ local function AddUnit(units, unit, label, color)
             table.insert(units, { token = unit, label = label or UnitName(unit), x = x, y = y, color = color })
         end
     end
+end
+
+-- Spell range is a proxy only; it is not the NPC aggro radius.
+function FAM:GetTargetRangeText()
+    if not UnitExists("target") then
+        return "|cffaaaaaaSin objetivo|r"
+    end
+
+    local spellName = self.db.rangeSpell or "Exorcismo"
+    local inRange = IsSpellInRange(spellName, "target")
+    local targetName = UnitName("target") or "Objetivo"
+
+    if inRange == 1 or inRange == true then
+        return "|cff33ff66" .. targetName .. " - " .. spellName .. ": EN RANGO|r"
+    elseif inRange == 0 or inRange == false then
+        return "|cffff5555" .. targetName .. " - " .. spellName .. ": FUERA DE RANGO|r"
+    end
+
+    return "|cffffcc55" .. targetName .. " - " .. spellName .. ": SIN DATO|r"
 end
 
 function FAM:CollectUnits()
@@ -48,8 +68,13 @@ end
 function FAM:Refresh()
     if not self.frame or not self.db.enabled then return end
     self:ClearDots()
+    local rangeText = self:GetTargetRangeText()
     local units, px, py = self:CollectUnits()
-    if not px then self:SetStatus("Coordenadas no disponibles"); return end
+    if not px then
+        self:SetStatus(rangeText .. " | Coordenadas del mapa no disponibles")
+        return
+    end
+
     local areaW, areaH = self.area:GetWidth(), self.area:GetHeight()
     local scale = math.min(areaW, areaH) / 0.10
     local shown = 0
@@ -64,7 +89,7 @@ function FAM:Refresh()
             end
         end
     end
-    self:SetStatus("Jugador centrado | Unidades visibles: " .. shown)
+    self:SetStatus(rangeText .. " | Unidades visibles: " .. shown)
 end
 
 SLASH_FACTIONAGGROMONITOR1 = "/fam"
@@ -75,6 +100,14 @@ SlashCmdList["FACTIONAGGROMONITOR"] = function(message)
         FAM:ResetPosition(); FAM:Print("Posicion del radar restaurada.")
     elseif command == "range" then
         FAM:SetRadius(value)
+    elseif command == "spell" then
+        if value and value ~= "" then
+            FAM.db.rangeSpell = value
+            FAM:Print("Habilidad de referencia: " .. value)
+            FAM:Refresh()
+        else
+            FAM:Print("Uso: /fam spell Exorcismo")
+        end
     elseif command == "lock" then
         FAM.db.locked = not FAM.db.locked
         FAM:Print("Radar " .. (FAM.db.locked and "bloqueado." or "desbloqueado."))
