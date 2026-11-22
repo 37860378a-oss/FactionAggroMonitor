@@ -110,6 +110,62 @@ function FAM:DebugUnits()
     self:Print("Importante: el registro de combate identifica unidades, pero no aporta posicion ni distancia.")
 end
 
+function FAM:DebugMinimap()
+    self:Print("=== FAM diagnostico del minimapa ===")
+    if type(GetNumTrackingTypes) == "function" and type(GetTrackingInfo) == "function" then
+        local count = GetNumTrackingTypes() or 0
+        self:Print("Tipos de rastreo disponibles: " .. count)
+        for i = 1, count do
+            local name, texture, active, category, nested = GetTrackingInfo(i)
+            self:Print("Rastreo " .. i .. ": " .. tostring(name) ..
+                " | activo: " .. tostring(active) ..
+                " | categoria: " .. tostring(category) ..
+                " | textura: " .. tostring(texture) ..
+                " | nivel: " .. tostring(nested))
+        end
+    else
+        self:Print("GetNumTrackingTypes/GetTrackingInfo no disponibles.")
+    end
+
+    if not Minimap then
+        self:Print("El frame global Minimap no esta disponible.")
+        return
+    end
+
+    local function describe(object, label)
+        if not object then return end
+        local okName, objectName = pcall(function() return object:GetName() end)
+        local okType, objectType = pcall(function() return object:GetObjectType() end)
+        self:Print(label .. " nombre=" .. tostring(okName and objectName or "anonimo") ..
+            " tipo=" .. tostring(okType and objectType or "desconocido"))
+        if okType and objectType == "Texture" then
+            local okTexture, texturePath = pcall(function() return object:GetTexture() end)
+            if okTexture then self:Print("  textura=" .. tostring(texturePath)) end
+        end
+    end
+
+    self:Print("Inspeccionando hijos directos de Minimap:")
+    local okChildren, children = pcall(function() return { Minimap:GetChildren() } end)
+    if okChildren and children then
+        for i = 1, math.min(table.getn(children), 40) do
+            describe(children[i], "Hijo " .. i)
+        end
+    else
+        self:Print("No se pudieron enumerar los hijos del minimapa.")
+    end
+
+    self:Print("Inspeccionando regiones directas de Minimap:")
+    local okRegions, regions = pcall(function() return { Minimap:GetRegions() } end)
+    if okRegions and regions then
+        for i = 1, math.min(table.getn(regions), 60) do
+            describe(regions[i], "Region " .. i)
+        end
+    else
+        self:Print("No se pudieron enumerar las regiones del minimapa.")
+    end
+    self:Print("Comparar esta salida con rastreo apagado y encendido. Esto inspecciona la UI, no garantiza acceso a los puntos dibujados por el motor.")
+end
+
 function FAM:PrintList()
     local units = self:CollectKnownUnits()
     self:Print("Unidades que el cliente expone:")
@@ -124,6 +180,7 @@ SlashCmdList["FACTIONAGGROMONITOR"] = function(message)
     local command, value = string.match(message or "", "^(%S*)%s*(.-)$")
     command = string.lower(command or "")
     if command == "debug" then FAM:DebugUnits()
+    elseif command == "minimap" then FAM:DebugMinimap()
     elseif command == "list" then FAM:PrintList()
     elseif command == "faction" then
         if value == "enemies" or value == "allies" or value == "both" then FAM.db.faction = value; FAM:Print("Filtro de faccion: " .. value)
