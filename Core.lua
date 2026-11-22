@@ -183,6 +183,7 @@ loader:SetScript("OnEvent", function(self, event, ...)
         FAM:RecordCombatUnit(destGUID, destName, destFlags)
         return
     elseif event == "ADDON_LOADED" then
+        local addon = ...
         if addon ~= "FactionAggroMonitor" then return end
         FAM:InitializeDB(); FAM:CreateRadar()
         FAM:Print("v" .. FAM.VERSION .. " cargado. /fam para mostrar u ocultar.")
