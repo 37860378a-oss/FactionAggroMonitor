@@ -1,19 +1,21 @@
 # Faction Aggro Monitor
 
-**Version:** 0.3.0  
+**Version:** 0.3.1  
 **Client:** World of Warcraft 3.3.5a (Interface 30300)  
 **Author:** Charls
 
 Visual proximity radar prototype for Trial of the Crusader (Faction Champions).
 
-## Version 0.3.0
+## Version 0.3.1
 
-- Adds `/fam debug` to report available player/target/boss unit tokens, map coordinates, GUIDs, and relevant API availability.
+- Adds hostile GUID observation from the combat log, with a 45-second timeout.
+- Checks additional unit tokens including `targettarget` and `arena1` through `arena5`.
+- Extends `/fam debug` to list hostile GUIDs seen during combat and available unit-token coordinates.
 - Keeps the optional spell-range indicator using **Exorcismo** as a reference only.
 - Displays EN RANGO, FUERA DE RANGO, SIN DATO, or Sin objetivo in the radar status line.
 - Adds `/fam spell Exorcismo` to change the spell used as a range reference.
 
-The diagnostic command helps determine whether the encounter exposes champion units and usable coordinates. It does not itself reveal hidden NPC positions. The spell indicator uses `IsSpellInRange` and does **not** measure aggro radius.
+Combat-log tracking can identify hostile enemies that participate in combat, even when they are not selected. It does not provide their world position or distance, so these GUIDs are diagnostic only and are not drawn as radar points. The diagnostic command helps determine whether the encounter exposes champion unit tokens and usable coordinates. The spell indicator uses `IsSpellInRange` and does **not** measure aggro radius.
 
 ## Current prototype
 
@@ -40,7 +42,8 @@ Copy the FactionAggroMonitor folder into Interface/AddOns/ and reload the UI.
 ## Commands
 
 - `/fam` — show/hide radar.
-- `/fam debug` — print available unit tokens, GUIDs, and coordinates for diagnosis.
+- `/fam debug` — print available unit tokens, GUIDs, coordinates, and hostile GUIDs recently observed in combat.
+- `/fam enemies` — same enemy diagnostic report.
 - `/fam reset` — reset radar position.
 - `/fam range 0.025` — set visual guide radius in normalized map units (not yards).
 - `/fam spell Exorcismo` — set the spell used for the target-range indicator.
