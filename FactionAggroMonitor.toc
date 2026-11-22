@@ -1,0 +1,10 @@
+## Interface: 30300
+## Title: Faction Aggro Monitor
+## Notes: Visual proximity radar and calibration helper for Trial of the Crusader.
+## Author: Charls
+## Version: 0.1.0
+## SavedVariables: FactionAggroMonitorDB
+
+Config.lua
+Radar.lua
+Core.lua
