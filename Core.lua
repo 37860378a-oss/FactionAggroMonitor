@@ -1,6 +1,8 @@
 local FAM = FactionAggroMonitor
 local elapsed = 0
 local seenEnemies = {}
+local combatEventCount = 0
+local hostileEventCount = 0
 local HOSTILE_FLAG = COMBATLOG_OBJECT_REACTION_HOSTILE or 0x00000040
 
 local function GetMapPosition(unit)
@@ -128,13 +130,19 @@ function FAM:DebugUnits()
         self:Print("Enemigo visto " .. count .. ": " .. tostring(info.name) .. " | GUID: " .. tostring(guid))
     end
     self:Print("GUID hostiles registrados en combate: " .. count)
-    self:Print("Nota: el registro de combate identifica enemigos, pero no proporciona su posicion/distancia.")
+    self:Print("Eventos de combate recibidos: " .. combatEventCount .. " | eventos con hostiles: " .. hostileEventCount)
+    self:Print("Nota: los nombres/GUID se obtienen cuando participan en combate; esto no proporciona posicion ni distancia.")
 end
 
 function FAM:RecordCombatUnit(guid, name, flags)
-    if not guid or not flags or not bit or not bit.band then return end
+    if not guid then return end
+    if not flags or not bit or not bit.band then return end
     if bit.band(flags, HOSTILE_FLAG) == 0 then return end
-    seenEnemies[guid] = { name = name or "Enemigo", time = GetTime() }
+    local entry = seenEnemies[guid]
+    if not entry then entry = { name = name or "Enemigo", hits = 0 }; seenEnemies[guid] = entry end
+    entry.name = name or entry.name or "Enemigo"
+    entry.hits = (entry.hits or 0) + 1
+    entry.time = GetTime()
 end
 
 function FAM:PruneCombatUnits()
@@ -179,8 +187,14 @@ loader:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 loader:SetScript("OnEvent", function(self, event, ...)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
         local timestamp, subevent, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags = ...
+        combatEventCount = combatEventCount + 1
+        local before = 0
+        for _ in pairs(seenEnemies) do before = before + 1 end
         FAM:RecordCombatUnit(sourceGUID, sourceName, sourceFlags)
         FAM:RecordCombatUnit(destGUID, destName, destFlags)
+        local after = 0
+        for _ in pairs(seenEnemies) do after = after + 1 end
+        if after > before then hostileEventCount = hostileEventCount + 1 end
         return
     elseif event == "ADDON_LOADED" then
         local addon = ...
