@@ -82,7 +82,7 @@ function FAM:UpdateRadarGeometry()
     local radii = { self.db.radius, self.db.radius + self.db.safetyRadius }
     for i, ring in ipairs(self.rings) do
         local fraction = math.min(0.95, radii[i] / 0.05)
-        local radius = size * fraction
+        local radius = size * fraction * 0.5
         local segmentLength = math.max(2, (2 * radius * math.sin(math.pi / 32)) + 1)
         for n, segment in ipairs(ring.segments) do
             local angle = ((n - 1) * 2 * math.pi / 32)
