@@ -1,6 +1,6 @@
 # Faction Aggro Monitor
 
-**Version:** 1.0.0  
+**Version:** 1.0.1  
 **Client:** World of Warcraft 3.3.5a (Interface 30300)  
 **Author:** Charls
 
@@ -19,8 +19,13 @@ This release replaces the previous encounter-specific prototype with a generic u
 - `/fam name <text>` to filter by a partial unit name; `/fam name` clears it.
 - `/fam list` lists currently exposed unit tokens.
 - `/fam debug` prints tokens and recent combat-log observations.
+- `/fam minimap` inspects tracking types plus direct Minimap child frames and regions; run it with tracking off and on to compare the UI tree.
 
-### Important limitations
+### Minimap tracking investigation
+
+Version 1.0.1 adds a read-only diagnostic command. `GetTrackingInfo()` reports which tracking mode is active, while `/fam minimap` lists the minimap frame children and regions (including texture names where available). This is an investigation aid only: it does not claim to read the engine-rendered humanoid blip coordinates. Compare output with tracking disabled and enabled.
+
+## Important limitations
 The combat log supplies names and GUIDs, not world coordinates, direction, or distance. A GUID observed in combat is not automatically a usable unit token. This version deliberately does not draw fake enemy positions.
 
 The radar currently shows the player marker and detector counters. Directional NPC dots and yard-based proximity remain disabled until a valid 3.3.5a/Patagonia position source is demonstrated. Nameplates are not used.
