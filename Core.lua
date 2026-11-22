@@ -127,10 +127,10 @@ function FAM:DebugUnits()
     local count = 0
     for guid, info in pairs(seenEnemies) do
         count = count + 1
-        self:Print("Enemigo visto " .. count .. ": " .. tostring(info.name) .. " | GUID: " .. tostring(guid))
+        self:Print("Enemigo visto " .. count .. ": " .. tostring(info.name) .. " | eventos: " .. tostring(info.hits or 0) .. " | GUID: " .. tostring(guid))
     end
     self:Print("GUID hostiles registrados en combate: " .. count)
-    self:Print("Eventos de combate recibidos: " .. combatEventCount .. " | eventos con hostiles: " .. hostileEventCount)
+    self:Print("Eventos de combate recibidos: " .. combatEventCount .. " | nuevos GUID hostiles: " .. hostileEventCount)
     self:Print("Nota: los nombres/GUID se obtienen cuando participan en combate; esto no proporciona posicion ni distancia.")
 end
 
