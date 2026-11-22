@@ -2,7 +2,7 @@
 ## Title: Faction Aggro Monitor
 ## Notes: Generic unit detector and proximity diagnostics for WoW 3.3.5a.
 ## Author: Charls
-## Version: 1.0.0
+## Version: 1.0.1
 ## SavedVariables: FactionAggroMonitorDB
 
 Config.lua
