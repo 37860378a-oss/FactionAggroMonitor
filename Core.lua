@@ -104,7 +104,8 @@ function FAM:Refresh()
     end
     local enemyCount = 0
     for _ in pairs(seenEnemies) do enemyCount = enemyCount + 1 end
-    self:SetStatus(rangeText .. " | Puntos: " .. shown .. " | Enemigos vistos: " .. enemyCount .. (facing and " | Radar orientado" or " | Sin orientacion"))
+    local headingText = facing and (" | Frente: " .. math.floor((facing * 180 / math.pi) % 360) .. " grados") or " | Sin orientacion"
+    self:SetStatus(rangeText .. " | Puntos: " .. shown .. " | Enemigos vistos: " .. enemyCount .. headingText)
 end
 
 
