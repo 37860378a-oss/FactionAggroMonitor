@@ -1,14 +1,14 @@
 # Faction Aggro Monitor
 
-**Version:** 0.3.1  
+**Version:** 0.3.2  
 **Client:** World of Warcraft 3.3.5a (Interface 30300)  
 **Author:** Charls
 
 Visual proximity radar prototype for Trial of the Crusader (Faction Champions).
 
-## Version 0.3.1
+## Version 0.3.2
 
-- Adds hostile GUID observation from the combat log, with a 45-second timeout.
+- Improves hostile GUID/name observation from combat-log events, including event counts and per-enemy event counts, with a 45-second timeout.
 - Checks additional unit tokens including `targettarget` and `arena1` through `arena5`.
 - Extends `/fam debug` to list hostile GUIDs seen during combat and available unit-token coordinates.
 - Keeps the optional spell-range indicator using **Exorcismo** as a reference only.
@@ -42,7 +42,7 @@ Copy the FactionAggroMonitor folder into Interface/AddOns/ and reload the UI.
 ## Commands
 
 - `/fam` — show/hide radar.
-- `/fam debug` — print available unit tokens, GUIDs, coordinates, and hostile GUIDs recently observed in combat.
+- `/fam debug` — print available unit tokens, GUIDs, coordinates, and hostile GUIDs and enemy names recently observed in combat, plus event counters.
 - `/fam enemies` — same enemy diagnostic report.
 - `/fam reset` — reset radar position.
 - `/fam range 0.025` — set visual guide radius in normalized map units (not yards).
