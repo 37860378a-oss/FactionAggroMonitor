@@ -83,10 +83,19 @@ function FAM:Refresh()
     end
 
     local scale = math.min(areaW, areaH) / 0.10
+    -- Rotate map-relative coordinates so the player's facing always points to the top.
+    -- WoW facing is in radians; map X grows east and map Y grows north.
+    local facing = GetPlayerFacing and GetPlayerFacing() or nil
+    local cosFacing, sinFacing = 1, 0
+    if facing then
+        cosFacing, sinFacing = math.cos(facing), math.sin(facing)
+    end
     for i, unit in ipairs(units) do
         if unit.token ~= "player" then
             local dx, dy = unit.x - px, unit.y - py
-            local nx, ny = 0.5 + (dx * scale / areaW), 0.5 + (dy * scale / areaH)
+            local rx = dx * cosFacing - dy * sinFacing
+            local ry = dx * sinFacing + dy * cosFacing
+            local nx, ny = 0.5 + (rx * scale / areaW), 0.5 + (ry * scale / areaH)
             if nx >= 0 and nx <= 1 and ny >= 0 and ny <= 1 then
                 self:PlaceDot("unit" .. i, nx, ny, unit.color, 7)
                 shown = shown + 1
@@ -95,7 +104,7 @@ function FAM:Refresh()
     end
     local enemyCount = 0
     for _ in pairs(seenEnemies) do enemyCount = enemyCount + 1 end
-    self:SetStatus(rangeText .. " | Puntos: " .. shown .. " | Enemigos vistos: " .. enemyCount)
+    self:SetStatus(rangeText .. " | Puntos: " .. shown .. " | Enemigos vistos: " .. enemyCount .. (facing and " | Radar orientado" or " | Sin orientacion"))
 end
 
 
@@ -122,6 +131,7 @@ function FAM:DebugUnits()
     for i = 1, 5 do Report("boss" .. i) end
     self:Print("UnitPosition: " .. tostring(type(UnitPosition) == "function"))
     self:Print("GetPlayerMapPosition: " .. tostring(type(GetPlayerMapPosition) == "function"))
+    self:Print("GetPlayerFacing: " .. tostring(type(GetPlayerFacing) == "function") .. " | facing: " .. tostring(GetPlayerFacing and GetPlayerFacing() or "no disponible"))
     for i = 1, 5 do Report("arena" .. i) end
     Report("targettarget")
     local count = 0
