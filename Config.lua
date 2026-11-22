@@ -1,6 +1,6 @@
 FactionAggroMonitor = FactionAggroMonitor or {}
 local FAM = FactionAggroMonitor
-FAM.VERSION = "1.0.0"
+FAM.VERSION = "1.0.1"
 
 local defaults = {
     enabled = true, radius = 0.025, safetyRadius = 0.00625,
